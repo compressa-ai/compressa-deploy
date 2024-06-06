@@ -1,0 +1,103 @@
+version: "3.8"
+
+services:
+  bot:
+    image: compressa/insightstream-chatbot-moex:latest
+    env_file:
+      - .env
+    environment:
+      TZ: "Europe/Moscow"
+    networks:
+      - is_network
+
+  qdrant:
+    image: compressa/qdrant:v1.9.4-unprivileged
+    ports:
+      - "6333:6333"
+    environment:
+      TZ: "Europe/Moscow"
+    volumes:
+      - ./data/qdrant:/qdrant/storage:z
+      - ./qdrant.conf.yml:/qdrant/config/production.yaml
+    networks:
+      - is_network
+      
+  nginx:
+    image: compressa/insightstream-chatbot-nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./data/documents:/www/documents
+      - ./bot.nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - bot
+      - qdrant
+    networks:
+      - is_network
+
+  ##############################
+
+  compressa-pod-chat:
+    image: "compressa/compressa-pod:0.2.0-alpha"
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: [ "${DOCKER_GPU_IDS_CHAT:-all}" ]
+            capabilities: [ gpu ]
+    volumes:
+      - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
+    networks:
+      - is_network
+    environment:
+      MINIO_URL: "minio-s3:9000"
+    command: >
+      python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api/chat
+
+  compressa-pod-embeddings:
+    image: "compressa/compressa-pod:0.2.0-alpha"
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: [ "${DOCKER_GPU_IDS_EMB:-all}" ]
+            capabilities: [ gpu ]
+    volumes:
+      - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
+    networks:
+      - is_network
+    environment:
+      MINIO_URL: "minio-s3:9000"
+    command: >
+      python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api/embeddings
+
+  openai-api:
+    image: nginx:latest
+    ports:
+      - "5500:80"
+    volumes:
+      - ./nginx-api.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - compressa-pod-chat
+      - compressa-pod-embeddings
+    networks:
+      - is_network
+
+  minio-s3:
+    image: quay.io/minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - is_network
+      
+networks:
+  is_network:
+
+volumes:
+  minio_data:
