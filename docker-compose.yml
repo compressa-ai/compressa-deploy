@@ -38,7 +38,7 @@ services:
   ##############################
 
   compressa-pod-chat:
-    image: "compressa/compressa-pod:latest"
+    image: "compressa/compressa-pod:0.2.0-alpha"
     deploy:
       resources:
         reservations:
@@ -56,7 +56,7 @@ services:
       python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api/chat
 
   compressa-pod-embeddings:
-    image: "compressa/compressa-pod:latest"
+    image: "compressa/compressa-pod:0.2.0-alpha"
     deploy:
       resources:
         reservations:
