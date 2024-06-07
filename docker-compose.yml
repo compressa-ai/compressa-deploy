@@ -26,9 +26,10 @@ services:
     image: compressa/insightstream-chatbot-nginx:latest
     ports:
       - "80:80"
+    environment:
+      SERVER_NAME: ${SERVER_NAME:localhost}
     volumes:
       - ./data/documents:/www/documents
-      - ./bot.nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - bot
       - qdrant
