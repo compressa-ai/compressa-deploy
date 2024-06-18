@@ -45,10 +45,10 @@ services:
         reservations:
           devices:
           - driver: nvidia
-            device_ids: [ "${DOCKER_GPU_IDS_CHAT:-all}" ]
+            device_ids: [ "${DOCKER_GPU_IDS_CHAT:-0}" ]
             capabilities: [ gpu ]
     volumes:
-      - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
+      - "./data/compressa:/app/resources:rw"
     networks:
       - is_network
     environment:
@@ -63,10 +63,10 @@ services:
         reservations:
           devices:
           - driver: nvidia
-            device_ids: [ "${DOCKER_GPU_IDS_EMB:-all}" ]
+            device_ids: [ "${DOCKER_GPU_IDS_EMB:-1}" ]
             capabilities: [ gpu ]
     volumes:
-      - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
+      - "./data/compressa:/app/resources:rw"
     networks:
       - is_network
     environment:
