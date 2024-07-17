@@ -12,6 +12,7 @@ services:
             capabilities: [ gpu ]
     ports:
       - "5100:5100"
+    shm_size: "12g"
     volumes:
       - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
     environment:
