@@ -18,7 +18,7 @@ services:
     environment:
       MINIO_URL: "minio-s3:9000"
     command: >
-      python3.9 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api
+      python -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api
 
   compressa-client-chat:
     image: "compressa/compressa-client-chat:latest"
