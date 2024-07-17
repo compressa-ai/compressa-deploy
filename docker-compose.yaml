@@ -51,7 +51,7 @@ services:
       - "53802:53802"
     command: >
       /bin/sh -c "echo 'N' | aim init --repo /data &&
-      aim server --host 0.0.0.0 --port 53800 --workers 2 --repo /data"
+      aim server --host 0.0.0.0 --port 53800 -y --repo /data"
 
   aim-ui:
     image: "compressa/aim-ui:latest"
