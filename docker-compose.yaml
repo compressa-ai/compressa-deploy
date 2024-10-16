@@ -1,82 +1,90 @@
 version: "3.8"
 
 services:
-  compressa-pod:
+  compressa-api-nginx:
+    image: nginx:stable-alpine3.19-slim
+    ports:
+      - "5555:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - compressa-client-chat
+      - compressa-infinity-rerank
+      - compressa-pod-1
+      - compressa-pod-2
+    networks:
+      - compresa-network
+
+  compressa-pod-1:
     image: "compressa/compressa-pod:latest"
     deploy:
       resources:
         reservations:
           devices:
           - driver: nvidia
-            device_ids: [ "${DOCKER_GPU_IDS:-all}" ]
+            device_ids: [ "${DOCKER_GPU_IDS_CHAT:-0}" ]
             capabilities: [ gpu ]
-    ports:
-      - "5100:5100"
-    shm_size: "12g"
     volumes:
-      - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
+      - "compressa-data:/app/resources:rw"
+    networks:
+      - compresa-network
     environment:
       MINIO_URL: "minio-s3:9000"
     command: >
-      python -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api
+      python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /pod-1/api
+
+  compressa-pod-2:
+    image: "compressa/compressa-pod:latest"
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: [ "${DOCKER_GPU_IDS_EMB:-1}" ]
+            capabilities: [ gpu ]
+    volumes:
+      - "compressa-data:/app/resources:rw"
+    networks:
+      - compresa-network
+    environment:
+      MINIO_URL: "minio-s3:9000"
+    command: >
+      python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /pod-2/api
+
+  compressa-infinity-rerank:
+    image: "michaelf34/infinity:0.0.51"
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            device_ids: [ "${DOCKER_GPU_IDS_RERANK:-1}" ]
+            capabilities: [ gpu ]
+    environment:
+      - HF_HOME=/app/resources/rerank-cache
+    volumes:
+      - "compressa-data:/app/resources:rw"
+    networks:
+      - compresa-network
+    command: >
+      v2
+      --model-id ${RERANK_MODEL_1}
+      --served-model-name Compressa-ReRank
+      --port 80
+      --proxy-root-path /v1
 
   compressa-client-chat:
     image: "compressa/compressa-client-chat:latest"
     environment:
-      - COMPRESSA_POD_HOST=http://compressa-pod
+      - COMPRESSA_POD_HOST=http://compressa-pod-1
       - COMPRESSA_POD_PORT=5000
     command: >
       client/chat/main.py
       --server.port=8501
       --server.address=0.0.0.0
       --server.baseUrlPath=/chat
-
-  compressa-client-ft:
-    image: "compressa/compressa-client-ft:latest"
-    environment:
-      - COMPRESSA_POD=http://compressa-pod:5100
-    command: >
-      client/finetune/main.py
-      --server.port=8501
-      --server.address=0.0.0.0
-      --server.baseUrlPath=/finetune
-
-  aim-server:
-    image: "compressa/aim-server:latest"
-    volumes:
-      - aim-data:/data:rw
-    ports:
-      - "53800:53800"
-      - "53801:53801"
-      - "53802:53802"
-    command: >
-      /bin/sh -c "echo 'N' | aim init --repo /data &&
-      aim server --host 0.0.0.0 --port 53800 -y --repo /data"
-
-  aim-ui:
-    image: "compressa/aim-ui:latest"
-    depends_on:
-      - aim-server
-    volumes:
-      - aim-data:/data:rw
-    ports:
-      - "43800:43800"
-    command: >
-      /bin/sh -c "echo 'N' | aim init --repo /data &&
-      aim up --host 0.0.0.0 --port 43800 --workers 2 --repo /data --base-path aim-ui"
-
-  nginx:
-    image: nginx:latest
-    ports:
-      - "8080:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - compressa-client-chat
-      - compressa-client-ft
-      - compressa-pod
-      - aim-ui
-      - aim-server
+    networks:
+      - compresa-network
 
   minio-s3:
     image: quay.io/minio/minio
@@ -85,11 +93,20 @@ services:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+      - minio-data:/data
+    networks:
+      - compresa-network
+
+networks:
+  compresa-network:
+    external: true
+    name: compressa-network
 
 volumes:
-  minio_data:
-  aim-data:
+  minio-data:
+  compressa-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${RESOURCES_PATH:-./data/compressa}
+      o: bind
