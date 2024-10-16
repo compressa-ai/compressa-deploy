@@ -9,6 +9,7 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - compressa-client-chat
+      - compressa-client-layout
       - compressa-infinity-rerank
       - compressa-pod-1
       - compressa-pod-2
@@ -73,6 +74,11 @@ services:
       --port 80
       --proxy-root-path /v1
 
+  compressa-layout:
+    image: "compressa/compressa-layout:latest"
+    networks:
+      - compresa-network
+
   compressa-client-chat:
     image: "compressa/compressa-client-chat:latest"
     environment:
@@ -83,6 +89,18 @@ services:
       --server.port=8501
       --server.address=0.0.0.0
       --server.baseUrlPath=/chat
+    networks:
+      - compresa-network
+
+  compressa-client-layout:
+    image: "compressa/compressa-client-layout:latest"
+    environment:
+      - COMPRESSA_LAYOUT=http://compressa-layout:8000/general/v0/general
+    command: >
+      client/layout/main.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.baseUrlPath=/layout
     networks:
       - compresa-network
 
