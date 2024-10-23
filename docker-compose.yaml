@@ -32,7 +32,11 @@ services:
     environment:
       MINIO_URL: "minio-s3:9000"
     command: >
-      python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /pod-1/api
+      python3
+        -m uvicorn manager.app.main:app
+        --host 0.0.0.0
+        --port 5100
+        --root-path /api/chat
 
   compressa-pod-2:
     image: "compressa/compressa-pod:latest"
@@ -50,7 +54,11 @@ services:
     environment:
       MINIO_URL: "minio-s3:9000"
     command: >
-      python3 -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /pod-2/api
+      python3
+        -m uvicorn manager.app.main:app
+        --host 0.0.0.0
+        --port 5100
+        --root-path /api/embeddings
 
   compressa-infinity-rerank:
     image: "michaelf34/infinity:0.0.51"
