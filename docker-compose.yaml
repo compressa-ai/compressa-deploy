@@ -125,8 +125,6 @@ services:
 
 networks:
   compresa-network:
-    external: true
-    name: compressa-network
 
 volumes:
   minio-data:
