@@ -1,8 +1,6 @@
-version: "3.8"
-
 services:
   compressa-pod:
-    image: "compressa/compressa-pod:0.3.2"
+    image: "compressa/compressa-pod:0.3.3"
     deploy:
       resources:
         reservations:
@@ -24,10 +22,9 @@ services:
       --root-path /api
 
   compressa-client-chat:
-    image: "compressa/compressa-client-chat:0.3.2"
+    image: "compressa/compressa-ui:0.3.3"
     environment:
-      - COMPRESSA_POD_HOST=http://compressa-pod
-      - COMPRESSA_POD_PORT=5000
+      - COMPRESSA_POD=http://nginx:80
     command: >
       client/chat/main.py
       --server.port=8501
@@ -35,9 +32,9 @@ services:
       --server.baseUrlPath=/chat
 
   compressa-client-ft:
-    image: "compressa/compressa-client-ft:0.3.2"
+    image: "compressa/compressa-ui:0.3.3"
     environment:
-      - COMPRESSA_POD=http://compressa-pod:5100
+      - COMPRESSA_POD=http://nginx:80/api
     command: >
       client/finetune/main.py
       --server.port=8501
@@ -45,7 +42,7 @@ services:
       --server.baseUrlPath=/finetune
 
   aim-server:
-    image: "compressa/aim-server:0.3.2"
+    image: "compressa/aim-server:0.3.3"
     volumes:
       - aim-data:/data:rw
     command: >
@@ -53,7 +50,7 @@ services:
       aim server --host 0.0.0.0 --port 53800 -y --repo /data"
 
   aim-ui:
-    image: "compressa/aim-ui:0.3.2"
+    image: "compressa/aim-ui:0.3.3"
     depends_on:
       - aim-server
     volumes:
@@ -86,7 +83,7 @@ services:
       - minio_data:/data
 
   auth:
-    image: compressa/compressa-auth:0.3.2
+    image: compressa/compressa-auth:0.3.3
     volumes:
       - ./tokens/user.csv:/tokens/user.csv:ro
       - ./tokens/admin.csv:/tokens/admin.csv:ro
