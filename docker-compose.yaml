@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  compressa-api-nginx:
+  nginx:
     image: nginx:stable-alpine3.19-slim
     ports:
       - "8080:80"
@@ -13,11 +13,12 @@ services:
       - compressa-rerank
       - compressa-pod-1
       - compressa-pod-2
+      - auth
     networks:
       - compresa-network
 
   compressa-pod-1:
-    image: "compressa/compressa-pod:0.3.0"
+    image: "compressa/compressa-pod:0.3.2"
     deploy:
       resources:
         reservations:
@@ -26,7 +27,8 @@ services:
             device_ids: [ "${DOCKER_GPU_IDS_1:-0}" ]
             capabilities: [ gpu ]
     volumes:
-      - "compressa-data:/app/resources:rw"
+      - compressa-data:/app/resources:rw
+      - ./deploy-qwen14.json:/configs/deploy.json:ro
     networks:
       - compresa-network
     environment:
@@ -39,7 +41,7 @@ services:
         --root-path /api/chat
 
   compressa-pod-2:
-    image: "compressa/compressa-pod:0.3.0"
+    image: "compressa/compressa-pod:0.3.2"
     deploy:
       resources:
         reservations:
@@ -48,7 +50,8 @@ services:
             device_ids: [ "${DOCKER_GPU_IDS_2:-1}" ]
             capabilities: [ gpu ]
     volumes:
-      - "compressa-data:/app/resources:rw"
+      - compressa-data:/app/resources:rw
+      - ./deploy-embeddings.json:/configs/deploy.json:ro
     networks:
       - compresa-network
     environment:
@@ -61,7 +64,7 @@ services:
         --root-path /api/embeddings
 
   compressa-rerank:
-    image: "compressa/compressa-rerank:0.3.0"
+    image: "compressa/compressa-rerank:0.3.2"
     deploy:
       resources:
         reservations:
@@ -83,12 +86,12 @@ services:
       --proxy-root-path /v1
 
   compressa-layout:
-    image: "compressa/compressa-layout:0.3.0"
+    image: "compressa/compressa-layout:0.3.2"
     networks:
       - compresa-network
 
   compressa-client-chat:
-    image: "compressa/compressa-client-chat:0.3.0"
+    image: "compressa/compressa-client-chat:0.3.2"
     environment:
       - COMPRESSA_POD_HOST=http://compressa-pod-1
       - COMPRESSA_POD_PORT=5000
@@ -101,7 +104,7 @@ services:
       - compresa-network
 
   compressa-client-layout:
-    image: "compressa/compressa-client-layout:0.3.0"
+    image: "compressa/compressa-client-layout:0.3.2"
     environment:
       - COMPRESSA_LAYOUT=http://compressa-layout:8000/general/v0/general
     command: >
@@ -120,6 +123,14 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - minio-data:/data
+    networks:
+      - compresa-network
+
+  auth:
+    image: compressa/compressa-auth:0.3.2
+    volumes:
+      - ./tokens/user.csv:/tokens/user.csv:ro
+      - ./tokens/admin.csv:/tokens/admin.csv:ro
     networks:
       - compresa-network
 
