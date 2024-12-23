@@ -1,5 +1,0 @@
-{
-  "model_id": "Salesforce/SFR-Embedding-Mistral",
-  "served_model_name": "Compressa-Embedding",
-  "dtype": "float16"
-}

@@ -1,1 +1,1 @@
-# Compressa Platform
+# Compressa LLM
