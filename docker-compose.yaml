@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   nginx:
     image: nginx:stable-alpine3.19-slim
@@ -18,7 +16,7 @@ services:
       - compresa-network
 
   compressa-pod-1:
-    image: "compressa/compressa-pod:0.3.2"
+    image: "compressa/compressa-pod:0.3.3"
     deploy:
       resources:
         reservations:
@@ -41,7 +39,7 @@ services:
         --root-path /api/chat
 
   compressa-pod-2:
-    image: "compressa/compressa-pod:0.3.2"
+    image: "compressa/compressa-pod:0.3.3"
     deploy:
       resources:
         reservations:
@@ -64,7 +62,7 @@ services:
         --root-path /api/embeddings
 
   compressa-rerank:
-    image: "compressa/compressa-rerank:0.3.2"
+    image: "compressa/compressa-rerank:0.3.3"
     deploy:
       resources:
         reservations:
@@ -86,15 +84,14 @@ services:
       --proxy-root-path /v1
 
   compressa-layout:
-    image: "compressa/compressa-layout:0.3.2"
+    image: "compressa/compressa-layout:0.3.3"
     networks:
       - compresa-network
 
   compressa-client-chat:
-    image: "compressa/compressa-client-chat:0.3.2"
+    image: "compressa/compressa-ui:0.3.3"
     environment:
-      - COMPRESSA_POD_HOST=http://compressa-pod-1
-      - COMPRESSA_POD_PORT=5000
+      - COMPRESSA_POD=http://nginx:80
     command: >
       client/chat/main.py
       --server.port=8501
@@ -103,8 +100,20 @@ services:
     networks:
       - compresa-network
 
+  compressa-client-ft:
+    image: "compressa/compressa-ui:0.3.3"
+    environment:
+      - COMPRESSA_POD=http://nginx:80/api/chat
+    command: >
+      client/finetune/main.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --server.baseUrlPath=/finetune
+    networks:
+      - compresa-network
+
   compressa-client-layout:
-    image: "compressa/compressa-client-layout:0.3.2"
+    image: "compressa/compressa-ui:0.3.3"
     environment:
       - COMPRESSA_LAYOUT=http://compressa-layout:8000/general/v0/general
     command: >
@@ -127,7 +136,7 @@ services:
       - compresa-network
 
   auth:
-    image: compressa/compressa-auth:0.3.2
+    image: compressa/compressa-auth:0.3.3
     volumes:
       - ./tokens/user.csv:/tokens/user.csv:ro
       - ./tokens/admin.csv:/tokens/admin.csv:ro
