@@ -1,0 +1,8 @@
+{{- $top := . }}
+{{- $spec := .Values.worker }}
+
+{{- range $name, $worker := .Values.worker.instances }}
+{{- if $worker.enabled }}
+{{- include "compressa-platform.deployment" (dict "top" $top "spec" $spec "name" $name "extras" $worker) }}
+{{- end }}
+{{- end }}

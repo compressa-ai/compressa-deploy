@@ -1,0 +1,7 @@
+{{- $top := . }}
+{{- $spec := .Values.rerank }}
+
+{{- if $spec.enabled }}
+{{- /*                                               NOT a misprint, $spec is passed twice intentionally*/}}
+{{- include "compressa-platform.deployment" (dict "top" $top "spec" $spec "name" "rerank" "extras" $spec) }}
+{{- end }}

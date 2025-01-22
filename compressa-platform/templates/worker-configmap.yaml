@@ -1,0 +1,1 @@
+{{- include "compressa-platform.configmap" (dict "top" . "item" .Values.worker_configmap) }}

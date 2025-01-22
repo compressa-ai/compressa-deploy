@@ -1,0 +1,7 @@
+{{- $top := . }}
+{{- $spec := .Values.common.volumes }}
+{{- range $item := $spec }}
+{{- if and (or (eq $item.type "pvc") (eq $item.type "persistentVolumeClaim")) ($item.create) }}
+{{- include "compressa-platform.pvc" (dict "top" $top "item" $item) }}
+{{- end }}
+{{- end }}

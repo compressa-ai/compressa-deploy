@@ -1,0 +1,6 @@
+{{- $top := . }}
+{{- $spec := .Values.layout }}
+{{- if $spec.enabled }}
+{{- /*                                               NOT a misprint, $spec is passed twice intentionally*/}}
+{{- include "compressa-platform.service" (dict "top" $top "spec" $spec "name" "layout" "extras" $spec) }}
+{{- end }}

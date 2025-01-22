@@ -1,0 +1,7 @@
+apiVersion: v2
+name: compressa-platform
+description: "Compressa - Self-Hosted LLM inference and finetuning platform"
+
+type: application
+version: 0.1.0
+appVersion: "0.3.3"

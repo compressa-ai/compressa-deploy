@@ -1,0 +1,448 @@
+#########################################################
+#                                                       #
+#                     COMMON options                    #
+#                                                       #
+#########################################################
+
+nameOverride: ""
+fullnameOverride: ""
+
+common:
+  imagePullSecrets:
+    - name: compressa-registry-credentials
+  volumes:
+    - name: resources
+      type: persistentVolumeClaim
+      create: true
+      spec:
+        # storageClassName: "local"
+        accessModes: 
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 80Gi
+    - name: worker-cm
+      type: configMap
+
+
+#########################################################
+#                                                       #
+#                     WORKER options                    #
+#                                                       #
+#########################################################
+
+worker_configmap:
+  name: "worker-cm"
+  data:
+    pod-1.json: |- 
+                  {
+                    "model_id": "compressa-ai/Compressa-Qwen2.5-14B-Instruct",
+                    "served_model_name": "Compressa-LLM",
+                    "dtype": "float16",
+                    "backend": "lmdeploy",
+                    "max_model_len": 30000
+                  }
+    pod-2.json: |-
+                  {
+                    "model_id": "Salesforce/SFR-Embedding-Mistral",
+                    "served_model_name": "Compressa-Embedding",
+                    "dtype": "float16"
+                  }
+
+worker:
+  replicaCount: 1
+
+  podAnnotations:
+    #hami.io/gpu-scheduler-policy: binpack
+    nvidia.com/nouse-gpuuuid: "GPU-c5f135ba-7b72-0369-9cb5-0578029762b2,GPU-a4ccf580-8cfa-21e5-4f6b-3da639d37172,GPU-c5fb8fed-5b65-8500-8069-d8f24bf2ceca,GPU-8038f9f6-438f-a6f0-6fdc-4f8641bce411"
+  podLabels: {}
+  
+  image:
+    repository: compressa/compressa-pod
+    pullPolicy: Always
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  securityContext: 
+    runAsUser: 0
+    privileged: false
+
+  runtimeClassName: nvidia
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+  
+  env:
+    UVICORN_HOST: "0.0.0.0"
+    UVICORN_PORT: "5100"
+    MINIO_URL: "minio-dev.minio-dev:9000"
+    MINIO_ROOT_USER: "minioadmin"
+    MINIO_ROOT_PASSWORD: "minioadmin"
+
+  command: [ "python3" ]
+  args:
+    - "-m"
+    - "uvicorn"
+    - "manager.app.main:app"
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: api
+    failureThreshold: 5
+    periodSeconds: 60
+
+  readinessProbe: {}
+
+  startupProbe:
+    httpGet:
+      path: /health
+      port: api
+    failureThreshold: 20
+    periodSeconds: 60
+
+  service:
+    type: ClusterIP
+    ports:
+      - port: 5100
+        protocol: TCP
+        name: control
+      - port: 5000
+        protocol: TCP
+        name: api
+  
+  volumeMounts:
+    - name: resources
+      mountPath: "/app/resources"
+      readOnly: false
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  instances:
+    pod-1:
+      enabled: true
+      extraPodLabels: {}
+      env:
+        UVICORN_ROOT_PATH: "/app/chat"
+      extraVolumeMounts:
+        - name: worker-cm
+          mountPath: /configs/deploy.json
+          subPath: pod-1.json
+      resources: 
+        limits:
+          cpu: 16
+          memory: 32Gi
+          nvidia.com/gpu: 1
+          #nvidia.com/gpumem: 40000
+        requests:
+          cpu: 4
+          memory: 32Gi
+          #nvidia.com/gpumem: 40000
+      ingress:
+        paths:
+          - path: /api/chat
+            port: control
+          - path: /v1/chat
+            port: api
+          - path: /v1/completions
+            port: api
+      
+    pod-2:
+      enabled: true
+      extraPodLabels: {}
+      env:
+        UVICORN_ROOT_PATH: "/app/embeddings"
+      extraVolumeMounts:
+        - name: worker-cm
+          mountPath: /configs/deploy.json
+          subPath: pod-2.json
+
+      resources: 
+        limits:
+          cpu: 8
+          memory: 32Gi
+          nvidia.com/gpu: 1
+          #nvidia.com/gpumem: 30720
+        requests:
+          cpu: 4
+          memory: 32Gi
+          nvidia.com/gpu: 1
+          #nvidia.com/gpumem: 30720
+      ingress:
+        paths:
+          - path: /api/embeddings
+            port: control
+          - path: /v1/embeddings
+            port: api
+      
+
+
+#########################################################
+#                                                       #
+#                     RERANK options                    #
+#                                                       #
+#########################################################
+
+rerank:
+  enabled: true
+  replicaCount: 1
+
+  podAnnotations:
+    #hami.io/gpu-scheduler-policy: binpack
+    nvidia.com/nouse-gpuuuid: "GPU-c5f135ba-7b72-0369-9cb5-0578029762b2,GPU-a4ccf580-8cfa-21e5-4f6b-3da639d37172,GPU-c5fb8fed-5b65-8500-8069-d8f24bf2ceca,GPU-8038f9f6-438f-a6f0-6fdc-4f8641bce411"
+  podLabels: {}
+  
+  image:
+    repository: compressa/compressa-rerank
+    pullPolicy: Always
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  securityContext: 
+    runAsUser: 0
+    privileged: false
+
+  runtimeClassName: nvidia
+
+  podSecurityContext: {}
+    # fsGroup: 2000
+
+  command: [ "infinity_emb" ]
+  args:
+    - "v2"
+    - "--model-id"
+    - "mixedbread-ai/mxbai-rerank-large-v1"
+    - "--served-model-name"
+    - "Compressa-ReRank"
+    - "--port"
+    - "80"
+    - "--proxy-root-path"
+    - "/v1"
+    - "--no-model-warmup"
+  
+  env:
+    HF_HOME: "/app/resources/rerank-cache"
+
+  resources: 
+    limits:
+      cpu: 16
+      memory: 32Gi
+      nvidia.com/gpu: 1
+      #nvidia.com/gpumem: 7168
+    requests:
+      cpu: 4
+      memory: 32Gi
+      nvidia.com/gpu: 1
+      #nvidia.com/gpumem: 7168
+  
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: api
+    failureThreshold: 5
+    periodSeconds: 60
+
+  readinessProbe: {}
+  
+  startupProbe:
+    httpGet:
+      path: /health
+      port: api
+    failureThreshold: 20
+    periodSeconds: 60
+
+  service:
+    type: ClusterIP
+    ports:
+      - port: 80
+        protocol: TCP
+        name: api
+  
+  volumeMounts:
+    - name: resources
+      mountPath: "/app/resources"
+      readOnly: false
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  ingress:
+    paths:
+      - path: /v1/rerank
+        port: api
+
+#########################################################
+#                                                       #
+#                     LAYOUT options                    #
+#                                                       #
+#########################################################
+
+layout:
+  enabled: false
+  replicaCount: 1
+
+  podAnnotations: {}
+  podLabels: {}
+  
+  image:
+    repository: compressa/compressa-layout
+    pullPolicy: Always
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  securityContext: {}
+  podSecurityContext: {}
+
+  resources: 
+    limits:
+      cpu: 4
+      memory: 16Gi
+    requests:
+      cpu: 2
+      memory: 16Gi
+  
+  livenessProbe: {}
+    #httpGet:
+    #  path: /
+    #  port: http
+  readinessProbe: {}
+    #httpGet:
+    #  path: /
+    #  port: http
+
+  service:
+    type: ClusterIP
+    ports:
+      - port: 8000
+        protocol: TCP
+        name: api
+  
+  volumeMounts: []
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  ingress:
+    paths:
+      - path: /v1/layout
+        port: api
+
+#########################################################
+#                                                       #
+#                     CLIENT options                    #
+#                                                       #
+#########################################################
+
+client:
+  replicaCount: 1
+
+  podAnnotations: {}
+  podLabels: {}
+  
+  image:
+    repository: compressa/compressa-ui
+    pullPolicy: Always
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+  securityContext: {}
+  podSecurityContext: {}
+
+  resources: 
+    limits:
+      cpu: 2
+      memory: 4Gi
+    requests:
+      cpu: 1
+      memory: 4Gi
+  
+  livenessProbe: {}
+    #httpGet:
+    #  path: /
+    #  port: http
+  readinessProbe: {}
+    #httpGet:
+    #  path: /
+    #  port: http
+
+  service:
+    type: ClusterIP
+    ports:
+      - port: 8501
+        protocol: TCP
+        name: client
+  
+  volumeMounts: []
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  instances:
+    client-chat:
+      enabled: true
+      extraPodLabels: {}
+      env:
+        COMPRESSA_POD: "http://compressa-compressa-platform-pod-1:5000"
+      args:
+        - "client/chat/main.py"
+        - "--server.port=8501"
+        - "--server.address=0.0.0.0"
+        - "--server.baseUrlPath=/chat"
+      ingress:
+        paths:
+          - path: /chat
+            port: client
+    
+    client-ft:
+      enabled: false
+      extraPodLabels: {}
+      args:
+        - "client/finetune/main.py"
+        - "--server.port=8501"
+        - "--server.address=0.0.0.0"
+        - "--server.baseUrlPath=/finetune"
+      ingress:
+        paths:
+          - path: /finetune
+            port: client
+
+    client-layout:
+      enabled: false
+      extraPodLabels: {}
+      args:
+        - "client/layout/main.py"
+        - "--server.port=8501"
+        - "--server.address=0.0.0.0"
+        - "--server.baseUrlPath=/layout"
+      ingress:
+        paths:
+          - path: /layout
+            port: client
+
+
+#########################################################
+#                                                       #
+#                     INGRESS options                   #
+#                                                       #
+#########################################################
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  host: tvel.is.demo.i.mil-team.ru
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+
+
+
