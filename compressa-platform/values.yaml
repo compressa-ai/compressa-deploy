@@ -25,6 +25,13 @@ common:
       type: configMap
 
 
+minio_credentials:
+  name: "minio-credentials"
+  data:
+    MINIO_URL: "minio-dev.minio-dev:9000"
+    MINIO_ROOT_USER: "minioadmin"
+    MINIO_ROOT_PASSWORD: "minioadmin"
+
 #########################################################
 #                                                       #
 #                     WORKER options                    #
@@ -52,9 +59,9 @@ worker_configmap:
 worker:
   replicaCount: 1
 
-  podAnnotations:
+  podAnnotations: {}
     #hami.io/gpu-scheduler-policy: binpack
-    nvidia.com/nouse-gpuuuid: "GPU-c5f135ba-7b72-0369-9cb5-0578029762b2,GPU-a4ccf580-8cfa-21e5-4f6b-3da639d37172,GPU-c5fb8fed-5b65-8500-8069-d8f24bf2ceca,GPU-8038f9f6-438f-a6f0-6fdc-4f8641bce411"
+    #nvidia.com/nouse-gpuuuid: "GPU-c5f135ba-7b72-0369-9cb5-0578029762b2,GPU-a4ccf580-8cfa-21e5-4f6b-3da639d37172,GPU-c5fb8fed-5b65-8500-8069-d8f24bf2ceca,GPU-8038f9f6-438f-a6f0-6fdc-4f8641bce411"
   podLabels: {}
   
   image:
@@ -75,9 +82,10 @@ worker:
   env:
     UVICORN_HOST: "0.0.0.0"
     UVICORN_PORT: "5100"
-    MINIO_URL: "minio-dev.minio-dev:9000"
-    MINIO_ROOT_USER: "minioadmin"
-    MINIO_ROOT_PASSWORD: "minioadmin"
+
+  envFrom:
+    - type: secret
+      name: minio-credentials
 
   command: [ "python3" ]
   args:
@@ -189,9 +197,9 @@ rerank:
   enabled: true
   replicaCount: 1
 
-  podAnnotations:
-    #hami.io/gpu-scheduler-policy: binpack
-    nvidia.com/nouse-gpuuuid: "GPU-c5f135ba-7b72-0369-9cb5-0578029762b2,GPU-a4ccf580-8cfa-21e5-4f6b-3da639d37172,GPU-c5fb8fed-5b65-8500-8069-d8f24bf2ceca,GPU-8038f9f6-438f-a6f0-6fdc-4f8641bce411"
+  podAnnotations: {}
+    # hami.io/gpu-scheduler-policy: binpack
+    # nvidia.com/nouse-gpuuuid: "GPU-c5f135ba-7b72-0369-9cb5-0578029762b2,GPU-a4ccf580-8cfa-21e5-4f6b-3da639d37172,GPU-c5fb8fed-5b65-8500-8069-d8f24bf2ceca,GPU-8038f9f6-438f-a6f0-6fdc-4f8641bce411"
   podLabels: {}
   
   image:
@@ -207,7 +215,6 @@ rerank:
   runtimeClassName: nvidia
 
   podSecurityContext: {}
-    # fsGroup: 2000
 
   command: [ "infinity_emb" ]
   args:
@@ -230,12 +237,12 @@ rerank:
       cpu: 16
       memory: 32Gi
       nvidia.com/gpu: 1
-      #nvidia.com/gpumem: 7168
+      # nvidia.com/gpumem: 7168
     requests:
       cpu: 4
       memory: 32Gi
       nvidia.com/gpu: 1
-      #nvidia.com/gpumem: 7168
+      # nvidia.com/gpumem: 7168
   
   livenessProbe:
     httpGet:

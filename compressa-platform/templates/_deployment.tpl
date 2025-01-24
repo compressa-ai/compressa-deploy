@@ -137,6 +137,16 @@ spec:
             {{- include "compressa-platform.env-vars" (merge ($spec.env | default dict) ($extras.env | default dict)) | nindent 12 }}
           {{- end }}
 
+          {{- if or $spec.envFrom $extras.extraEnvFrom }}
+          envFrom:
+          {{- if $spec.envFrom }}
+          {{- include "compressa-platform.env-from" (dict "top" $top "spec" $spec.envFrom) | nindent 12 }}
+          {{- end }}
+          {{- if $extras.extraEnvFrom }}
+          {{- include "compressa-platform.env-from" (dict "top" $top "spec" $extras.extraEnvFrom) | nindent 12 }}
+          {{- end }}
+          {{- end }}
+
           {{- if or $spec.volumeMounts $extras.extraVolumeMounts }}
           volumeMounts:
             {{- toYaml (concat ( $spec.volumeMounts | default list) ($extras.extraVolumeMounts | default list)) | nindent 12 }}
