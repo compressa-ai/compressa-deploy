@@ -1,0 +1,8 @@
+{
+  "model_id": "Qwen/QwQ-32B",
+  "served_model_name": "Compressa-QwQ",
+  "dtype": "auto",
+  "backend": "vllm",
+  "max_model_len": 30000,
+  "quantization": "fp8"
+}
