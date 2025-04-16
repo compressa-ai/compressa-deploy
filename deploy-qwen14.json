@@ -2,7 +2,6 @@
   "model_id": "compressa-ai/Compressa-Qwen2.5-14B-Instruct",
   "served_model_name": "Compressa-LLM",
   "dtype": "float16",
-  "backend": "lmdeploy",
-  "max_model_len": 30000
+  "backend": "vllm",
+  "max_model_len": 27000
 }
-
