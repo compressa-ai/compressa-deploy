@@ -1,0 +1,8 @@
+{
+  "model_id": "Qwen/Qwen2.5-14B-Instruct",
+  "served_model_name": "Compressa-LLM",
+  "dtype": "auto",
+  "backend": "sglang",
+  "max_model_len": 27000,
+  "task": "llm"
+}
