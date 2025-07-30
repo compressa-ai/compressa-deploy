@@ -1,0 +1,6 @@
+{
+  "model_id": "compressa-ai/XTTS-v2",
+  "served_model_name": "Compressa-TTS",
+  "backend": "coqui",
+  "task": "tts"
+}

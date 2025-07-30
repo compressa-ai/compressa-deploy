@@ -1,0 +1,7 @@
+{
+  "model_id": "BAAI/bge-reranker-base",
+  "served_model_name": "Compressa-Rerank",
+  "dtype": "float16",
+  "backend": "infinity",
+  "task": "rerank"
+}
