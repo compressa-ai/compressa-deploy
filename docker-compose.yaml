@@ -1,8 +1,6 @@
-version: "3.8"
-
 services:
   compressa-pod:
-    image: "compressa/compressa-pod:latest"
+    image: "compressa/compressa-pod:0.3.8"
     deploy:
       resources:
         reservations:
@@ -10,60 +8,56 @@ services:
           - driver: nvidia
             device_ids: [ "${DOCKER_GPU_IDS:-all}" ]
             capabilities: [ gpu ]
-    ports:
-      - "5100:5100"
-    shm_size: "12g"
+    shm_size: "32g"
     volumes:
       - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
+      - ./deploy-qwen14.json:/configs/deploy.json:ro
     environment:
       MINIO_URL: "minio-s3:9000"
-    command: >
-      python -m uvicorn manager.app.main:app --host 0.0.0.0 --port 5100 --root-path /api
+      ROOT_PATH: "/api"
+    restart: always
 
   compressa-client-chat:
-    image: "compressa/compressa-client-chat:latest"
+    image: "compressa/compressa-ui:0.3.8"
     environment:
-      - COMPRESSA_POD_HOST=http://compressa-pod
-      - COMPRESSA_POD_PORT=5000
+      - COMPRESSA_POD=http://nginx:80
     command: >
       client/chat/main.py
       --server.port=8501
       --server.address=0.0.0.0
       --server.baseUrlPath=/chat
+    restart: always
 
   compressa-client-ft:
-    image: "compressa/compressa-client-ft:latest"
+    image: "compressa/compressa-ui:0.3.8"
     environment:
-      - COMPRESSA_POD=http://compressa-pod:5100
+      - COMPRESSA_POD=http://nginx:80/api
     command: >
       client/finetune/main.py
       --server.port=8501
       --server.address=0.0.0.0
       --server.baseUrlPath=/finetune
+    restart: always
 
   aim-server:
-    image: "compressa/aim-server:latest"
-    volumes:
-      - aim-data:/data:rw
-    ports:
-      - "53800:53800"
-      - "53801:53801"
-      - "53802:53802"
+    image: "compressa/aim-server:0.3.8"
+    # volumes:
+    #   - aim-data:/data:rw
     command: >
       /bin/sh -c "echo 'N' | aim init --repo /data &&
       aim server --host 0.0.0.0 --port 53800 -y --repo /data"
+    restart: always
 
   aim-ui:
-    image: "compressa/aim-ui:latest"
+    image: "compressa/aim-ui:0.3.8"
     depends_on:
       - aim-server
-    volumes:
-      - aim-data:/data:rw
-    ports:
-      - "43800:43800"
+    # volumes:
+    #   - aim-data:/data:rw
     command: >
       /bin/sh -c "echo 'N' | aim init --repo /data &&
       aim up --host 0.0.0.0 --port 43800 --workers 2 --repo /data --base-path aim-ui"
+    restart: always
 
   nginx:
     image: nginx:latest
@@ -77,6 +71,8 @@ services:
       - compressa-pod
       - aim-ui
       - aim-server
+      - auth
+    restart: always
 
   minio-s3:
     image: quay.io/minio/minio
@@ -86,10 +82,15 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    restart: always
+
+  auth:
+    image: compressa/compressa-auth:0.3.8
+    volumes:
+      - ./tokens/user.csv:/tokens/user.csv:ro
+      - ./tokens/admin.csv:/tokens/admin.csv:ro
+    restart: always
 
 volumes:
   minio_data:
-  aim-data:
+  # aim-data:
