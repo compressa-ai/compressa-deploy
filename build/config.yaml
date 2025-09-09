@@ -1,0 +1,30 @@
+settings:
+  base_image: "compressa/compressa-pod:0.3.9.post1"
+
+pods:
+  - engine: vllm
+    task: llm
+    model_name: "Qwen/Qwen3-14B"
+    gpu_id: "0"
+    gpu_memory_utilization: 0.9
+  - engine: vllm
+    task: embeddings
+    model_name: "Salesforce/SFR-Embedding-Mistral"
+    gpu_id: "4"
+    gpu_memory_utilization: 0.7
+  - engine: infinity
+    task: rerank
+    model_name: "mixedbread-ai/mxbai-rerank-large-v1"
+    gpu_id: "4"
+  - engine: asr_backend
+    task: asr
+    model_name: "t-tech/T-one"
+    gpu_id: "4"
+  - engine: coqui
+    task: tts
+    model_name: "compressa-ai/XTTS-v2"
+    gpu_id: "4"
+  - engine: llamacpp
+    task: llm
+    model_name: "TheBloke/Mistral-7B-Instruct-v0.1-GGUF"
+    quantization: "Q8_0"
