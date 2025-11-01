@@ -17,8 +17,8 @@ services:
       - NETWORK=${NETWORK:-common_network}
       - PROJECT=${PROJECT:-compressa}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    ports:
-      - "${DISPATCHER_PORT:-8001}:${DISPATCHER_PORT:-8001}"
+    expose:
+      - "${DISPATCHER_PORT:-8001}"
     restart: on-failure
     volumes:
       - ./build:/app/deploy
