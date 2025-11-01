@@ -1,8 +1,10 @@
 version: "3.8"
 
+
+# To run with independent pods set Autodeploy to false and use Create pods command
 services:
-  dispatcher:
-    image: compressa/compressa-entrypoint:0.3.9
+  test-dispatcher: # must be the same as the DISPATCHER_HOST in the .env
+    image: compressa/compressa-entrypoint:0.3.10
     environment:
       - COMPRESSA_API_KEY=${COMPRESSA_API_KEY:-COMPRESSA_API_KEY}
       - RESOURCES_PATH=${RESOURCES_PATH}
@@ -10,15 +12,19 @@ services:
       - DISPATCHER_HOST=${DISPATCHER_HOST:-central-pod}
       - DISPATCHER_PORT=${DISPATCHER_PORT:-8001}
       - AUTODEPLOY=${AUTODEPLOY:-True}
+      - RUN_TESTS=${RUN_TESTS:-False}
       - POD_NAME=${POD_NAME:-compressa-pod}
+      - NETWORK=${NETWORK:-common_network}
+      - PROJECT=${PROJECT:-compressa}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
       - "${DISPATCHER_PORT:-8001}:${DISPATCHER_PORT:-8001}"
     restart: on-failure
     volumes:
-      - ./build:${CFG_DIR:-/app/deploy}
-      - ./build:${WORKDIR:-/app/workdir}
+      - ./build:/app/deploy
+      - ${WORKDIR:-./build}:/app/workdir
       - "${RESOURCES_PATH:-./resources}:/app/resources:rw"
-    container_name: ${DISPATCHER_HOST:-dispatcher}
+    container_name: "${PROJECT:-compressa}-${DISPATCHER_HOST:-dispatcher}"
     networks:
       - "${NETWORK:-common_network}"
 
@@ -26,11 +32,34 @@ services:
     stdin_open: true
     tty: true
 
-  compressa-client-chat:
-    image: "compressa/compressa-ui:0.3.9"
-    container_name: compressa-client-chat
+  autotests:
+    image: compressa/compressa-autotest:0.3.10
     environment:
-      - COMPRESSA_POD=http://nginx:80
+      - COMPRESSA_API_KEY=${COMPRESSA_API_KEY:-COMPRESSA_API_KEY}
+      - NGINX_HOST=${PROJECT:-compressa}-nginx # external nginx host
+      - NGINX_PORT=${NGINX_LISTEN_PORT:-99} # external nginx port
+      - NGINX_TOKEN=${NGINX_TOKEN:-TOKEN_1}
+      - PROJECT=${PROJECT:-compressa}
+    expose:
+      - "8010"
+    restart: on-failure
+    container_name: "${PROJECT:-compressa}-autotests"
+    networks:
+      - "${NETWORK:-common_network}"
+    volumes:
+      - ./test_results:/app/test_results
+
+    command: python -m platform_test
+    stdin_open: true
+    tty: true
+
+
+  compressa-client-chat:
+    image: compressa/compressa-ui:0.3.10
+    environment:
+      - "COMPRESSA_POD=http://${DISPATCHER_HOST:-central-pod}:${DISPATCHER_PORT:-8001}/v1"
+      - VALIDATE_URL=http://auth:5050/auth-user
+      - ENABLE_LOGIN=${UI_LOGIN:-False}
     command: >
       client/chat/main.py
       --server.port=8501
@@ -38,78 +67,57 @@ services:
       --server.baseUrlPath=/chat
     networks:
       - "${NETWORK:-common_network}"
-    restart: always
-
-  compressa-client-ft:
-    image: "compressa/compressa-ui:0.3.9"
-    container_name: compressa-client-ft
-    environment:
-      - COMPRESSA_POD=http://nginx:80/api/chat
-    command: >
-      client/finetune/main.py
-      --server.port=8501
-      --server.address=0.0.0.0
-      --server.baseUrlPath=/finetune
-    networks:
-      - "${NETWORK:-common_network}"
+    container_name: "${PROJECT:-compressa}-compressa-client-chat"
     restart: always
 
   compressa-client-layout:
-    image: "compressa/compressa-ui:0.3.9"
-    container_name: compressa-client-layout
+    image: compressa/compressa-ui:0.3.10
+    container_name: "${PROJECT:-compressa}-compressa-client-layout"
     environment:
       - COMPRESSA_LAYOUT=http://compressa-layout:8000/general/v0/general
+      - ENABLE_LOGIN=${UI_LOGIN:-False}
+      - VALIDATE_URL=http://auth:5050/auth-user
     command: >
       client/layout/main.py
-      --server.port=8501
+      --server.port=8502
       --server.address=0.0.0.0
       --server.baseUrlPath=/layout
     networks:
       - "${NETWORK:-common_network}"
     restart: always
 
-  minio-s3:
-    image: quay.io/minio/minio
-    container_name: minio-s3
-    command: server /data --console-address ":9001"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
-    volumes:
-      - minio-data:/data
-    networks:
-      - "${NETWORK:-common_network}"
-    restart: always
-
   compressa-layout:
-    image: "compressa/compressa-layout:0.3.9"
+    image: "compressa/compressa-layout-gpu:0.3.10"
+    container_name: "${PROJECT:-compressa}-compressa-layout"
+    expose:
+      - "8000"
     networks:
       -  "${NETWORK:-common_network}"
 
   nginx:
     image: nginx:latest
-    container_name: nginx
+    container_name: "${PROJECT:-compressa}-nginx"
     ports:
-      - "9090:80"
+      - "9999:${NGINX_LISTEN_PORT:-99}"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - compressa-client-chat
       - compressa-client-layout
-      - dispatcher
+      - test-dispatcher
     networks:
       - "${NETWORK:-common_network}"
     restart: always
 
   opensearch:
     image: opensearchproject/opensearch:2.13.0
-    container_name: opensearch
+    container_name: "${PROJECT:-compressa}-opensearch"
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
       - bootstrap.memory_lock=true
       - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
-      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Rjvghtccf@1
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=YOUR_PASSWORD
     ulimits:
       memlock:
         soft: -1
@@ -118,10 +126,10 @@ services:
         soft: 65536
         hard: 65536
     volumes:
-      - ${RESOURCES_PATH}/opensearch-data:/usr/share/opensearch/data
-    ports:
-      - "9200:9200"
-      - "9600:9600"
+      - ${RESOURCES_PATH}/dev-opensearch-data:/usr/share/opensearch/data
+    expose:
+      - "9200"
+      - "9600"
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
       interval: 10s
@@ -132,12 +140,12 @@ services:
 
   dashboards:
     image: opensearchproject/opensearch-dashboards:2.13.0
-    container_name: opensearch-dashboards
+    container_name: "${PROJECT:-compressa}-opensearch-dashboards"
     environment:
       - OPENSEARCH_HOSTS=["http://opensearch:9200"]
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     ports:
-      - "5601:5601"
+      - "5555:5601"
     depends_on:
       opensearch:
         condition: service_healthy
@@ -146,12 +154,12 @@ services:
 
   data-prepper:
     image: opensearchproject/data-prepper:2.6.0
-    container_name: data-prepper
+    container_name: "${PROJECT:-compressa}-data-prepper"
     volumes:
-      - "${DATA_PREPPER_CFG_PATH:-../../services/elk/data-prepper/}/pipelines.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml:ro"
-      - "${DATA_PREPPER_CFG_PATH:-../../services/elk/data-prepper/}/data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml:ro"
-    ports:
-      - "2021:2021"
+      - ./data-prepper/pipelines.yaml:/usr/share/data-prepper/pipelines/pipelines.yaml:ro
+      - ./data-prepper/data-prepper-config.yaml:/usr/share/data-prepper/config/data-prepper-config.yaml:ro
+    expose:
+      - "2021"
     depends_on:
       opensearch:
         condition: service_healthy
@@ -160,8 +168,8 @@ services:
 
     
   auth:
-    image: compressa/compressa-auth:0.3.9
-    container_name: compressa-auth
+    image: compressa/compressa-auth:0.3.10
+    container_name: "${PROJECT:-compressa}-compressa-auth"
     volumes:
       - ./tokens/user.csv:/tokens/user.csv:ro
       - ./tokens/admin.csv:/tokens/admin.csv:ro
@@ -171,11 +179,10 @@ services:
 
 
 networks:
-  common_network:
+  test_network: # RENAME TO YOUR NETWORK (.env file)
     external: true
 
 volumes:
-  minio-data:
   compressa-data:
     driver: local
     driver_opts:

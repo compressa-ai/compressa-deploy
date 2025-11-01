@@ -1,0 +1,7 @@
+{
+  "model_id": "t-tech/T-one",
+  "served_model_name": "Compressa-ASR",
+  "backend": "asr_backend",
+  "task": "asr"
+}
+

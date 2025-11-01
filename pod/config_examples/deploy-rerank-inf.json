@@ -1,0 +1,7 @@
+{
+  "model_id": "mixedbread-ai/mxbai-rerank-large-v1",
+  "served_model_name": "Compressa-Rerank",
+  "dtype": "float16",
+  "backend": "infinity",
+  "task": "rerank"
+}
