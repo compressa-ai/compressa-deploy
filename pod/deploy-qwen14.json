@@ -1,0 +1,8 @@
+{
+  "model_id": "Qwen/Qwen3-14B",
+  "served_model_name": "Compressa-LLM",
+  "dtype": "auto",
+  "backend": "vllm",
+  "max_model_len": 32000,
+  "task": "llm"
+} 
