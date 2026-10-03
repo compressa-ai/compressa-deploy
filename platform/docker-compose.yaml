@@ -4,7 +4,7 @@ version: "3.8"
 # To run with independent pods set Autodeploy to false and use Create pods command
 services:
   test-dispatcher: # must be the same as the DISPATCHER_HOST in the .env
-    image: compressa/compressa-entrypoint:0.3.10
+    image: compressa/compressa-entrypoint:0.3.12
     environment:
       - COMPRESSA_API_KEY=${COMPRESSA_API_KEY:-COMPRESSA_API_KEY}
       - RESOURCES_PATH=${RESOURCES_PATH}
@@ -33,7 +33,7 @@ services:
     tty: true
 
   autotests:
-    image: compressa/compressa-autotest:0.3.10
+    image: compressa/compressa-autotest:0.3.12
     environment:
       - COMPRESSA_API_KEY=${COMPRESSA_API_KEY:-COMPRESSA_API_KEY}
       - NGINX_HOST=${PROJECT:-compressa}-nginx # external nginx host
@@ -55,7 +55,7 @@ services:
 
 
   compressa-client-chat:
-    image: compressa/compressa-ui:0.3.10
+    image: compressa/compressa-ui:0.3.11
     environment:
       - "COMPRESSA_POD=http://${DISPATCHER_HOST:-central-pod}:${DISPATCHER_PORT:-8001}/v1"
       - VALIDATE_URL=http://auth:5050/auth-user
@@ -71,7 +71,7 @@ services:
     restart: always
 
   compressa-client-layout:
-    image: compressa/compressa-ui:0.3.10
+    image: compressa/compressa-ui:0.3.11
     container_name: "${PROJECT:-compressa}-compressa-client-layout"
     environment:
       - COMPRESSA_LAYOUT=http://compressa-layout:8000/general/v0/general

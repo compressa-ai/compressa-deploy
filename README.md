@@ -3,11 +3,11 @@
 Pull images
 
 ```shell
-compressa/compressa-pod:0.3.10
-compressa/compressa-entrypoint:0.3.10
-compressa/compressa-autotest:0.3.10
+compressa/compressa-pod:0.3.12
+compressa/compressa-entrypoint:0.3.12
+compressa/compressa-autotest:0.3.12
 compressa/compressa-layout-gpu:0.3.10
-compressa/compressa-ui:0.3.10
+compressa/compressa-ui:0.3.11
 compressa/compressa-auth:0.3.10
 compressa/aim-ui:0.3.10
 compressa/aim-server:0.3.10

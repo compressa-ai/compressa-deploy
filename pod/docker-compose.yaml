@@ -3,7 +3,7 @@ version: "3.8"
 services:
 
   compressa-pod:
-    image: compressa/compressa-pod:0.3.10
+    image: compressa/compressa-pod:0.3.12
     ports:
       - "5000:5000"
       - "5100:5100"

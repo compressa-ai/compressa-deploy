@@ -1,5 +1,5 @@
 settings:
-  base_image: "compressa/compressa-pod:0.3.10"
+  base_image: "compressa/compressa-pod:0.3.12"
 
 pods:
   - engine: vllm
